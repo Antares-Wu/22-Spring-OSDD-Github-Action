@@ -1,93 +1,17 @@
-# This is a basic workflow to help you get started with Actions
+name: md2pdf
 
-name: CI
+on: push
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the main branch
-  push:
-    branches:
-      - 'main'
-    paths:
-      - '.github/workflows/**.yml'
-      - 'assets/**'
-      - 'md/**'
-      - 'python/**'
-    tags:        
-      - v*             # Push events to v1 tag
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "convert"
   convert:
-  
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
-    
-      # Runs a single command using the runners shell
-      - uses: actions/setup-python@v3
+      - uses: actions/checkout@v2
+      - run: mkdir output
+      - uses: docker://pandoc/latex
         with:
-          python-version: '3.7' # Version range or exact version of a Python version to use, using SemVer's version range syntax
-          architecture: 'x64' # optional x64 or x86. Defaults to x64 if not specified
-      - name: DumpMarkdown 
-        run: python python/main.py
-        
-      - name: Get current date
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
-        
-      - name: PandocLatex
-        uses: ./
+          args: --pdf-engine=xelatex build.md -o output/build.pdf
+      - uses: actions/upload-artifact@master
         with:
-          args: >-
-            pandoc assets/build.md 
-            -o artifact/build.pdf
-            --from markdown 
-            --resource-path=assets 
-            --pdf-engine "xelatex" 
-            --toc 
-
-      - name: UploadArtifact
-        uses: actions/upload-artifact@master
-        with:
-          name: build-${{ github.run_number }}
-          path: artifact
-        
-      - name: PushCommit
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        run: |
-          cp artifact/build.pdf backups/${{ steps.date.outputs.date }}-build${{ github.run_number }}.pdf
-          cp assets/build.md backups/${{ steps.date.outputs.date }}-build${{ github.run_number }}.md
-          git add .
-          git commit -m "CI: produce ${{ steps.date.outputs.date }}-build${{ github.run_number }}.pdf"
-          git push
-          
-  release:
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-18.04
-    steps:
-      - uses: actions/checkout@v3
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifact/build.pdf
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-        
-        
-        
-        
-        
-        
-        
-
-
+          name: build
+          path: output
